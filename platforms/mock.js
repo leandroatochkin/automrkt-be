@@ -1,4 +1,4 @@
-import { RetryablePlatformError } from "../errorHandling/errors";
+import { RetryablePlatformError } from "../errorHandling/errors.js";
 
 export const mockPublisher = {
   async publish(payload) {

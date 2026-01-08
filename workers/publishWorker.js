@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { platformPublishers } from "../platforms";
-import { RetryablePlatformError, PermanentPlatformError } from "../errorHandling/errors";
+import { platformPublishers } from "../platforms/index.js";
+import { RetryablePlatformError, PermanentPlatformError } from "../errorHandling/errors.js";
+import { JobStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -12,7 +13,7 @@ export async function runPublishWorker() {
 
   const job = await prisma.publishJob.findFirst({
         where: {
-            status: { in: ["queued", "failed"] },   // note: NOT canceled
+            status: { in: [JobStatus.QUEUED, JobStatus.FAILED] },   // note: NOT canceled
             scheduleTime: { lte: now },
             OR: [
             { lastAttempt: null },
