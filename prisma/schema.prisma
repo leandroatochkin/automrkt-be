@@ -1,0 +1,95 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  campaigns Campaign[]
+}
+
+model Campaign {
+  id            String   @id @default(cuid())
+  name          String
+  content       String
+  audience      Json
+  status        CampaignStatus @default(DRAFT)
+  version       Int      @default(1)
+  scheduledAt   DateTime? @map("scheduled_at")
+  lockedAt      DateTime? @map("locked_at")
+  ownerId       String   @map("owner_id")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // 🔗 User relation (inverse of User.campaigns)
+  owner User @relation(fields: [ownerId], references: [id])
+
+  // 🔗 Version history
+  versions CampaignVersion[]
+
+  // 🔗 Jobs (inverse of PublishJob.campaign)
+  publishJobs PublishJob[]
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  COMPLETED
+  CANCELED
+}
+
+model CampaignVersion {
+  id          String   @id @default(cuid())
+  campaignId  String   @map("campaign_id")
+  version     Int
+  data        Json
+  editedBy    String   @map("edited_by")
+
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relations
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+
+  @@unique([campaignId, version]) // prevents duplicate version numbers
+}
+
+model PublishJob {
+  id           String   @id @default(uuid())
+  campaignId   String
+  platform     PublishPlatform
+  scheduleTime DateTime
+  status       JobStatus @default(QUEUED)
+  logs         Json?
+
+  retryCount   Int      @default(0)
+  lastAttempt  DateTime?
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  @@unique([campaignId, platform])
+}
+
+enum PublishPlatform {
+  TWITTER
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+  LINKEDIN
+}
+
+enum JobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
+  FAILED_PERMANENT
+  CANCELED
+}
