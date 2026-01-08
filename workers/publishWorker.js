@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
+import { platformPublishers } from "../platforms";
+import { RetryablePlatformError, PermanentPlatformError } from "../errorHandling/errors";
 
 const prisma = new PrismaClient();
 
@@ -47,10 +49,20 @@ export async function runPublishWorker() {
 
   try {
     // simulate publish
-    await new Promise(res => setTimeout(res, 2000));
+    //await new Promise(res => setTimeout(res, 2000));
 
     // random failure simulation (optional while testing)
     //if (Math.random() < 0.5) throw new Error("Random publish failure");
+
+    const publisher = platformPublishers[job.platform];
+
+    if (!publisher) {
+        throw new Error(`No publisher for platform ${job.platform}`);
+        }
+
+    await publisher.publish({
+        text: job.campaign.content
+    });
 
     await prisma.$transaction([
         prisma.publishJob.update({
@@ -71,41 +83,68 @@ export async function runPublishWorker() {
         ]);
 
   } catch (err) {
-    const retries = job.retryCount + 1;
+        const retries = job.retryCount + 1;
 
-    if (retries >= MAX_RETRIES) {
-      await prisma.$transaction([
-            prisma.publishJob.update({
-                where: { id: job.id },
-                data: {
-                status: "failed_permanent",
+        const isPermanent =
+            err instanceof PermanentPlatformError ||
+            retries >= MAX_RETRIES;
+
+        if (isPermanent) {
+            await prisma.publishJob.update({
+            where: { id: job.id },
+            data: {
+                status: "FAILED_PERMANENT",
                 retryCount: retries,
                 logs: {
-                    ...(job.logs || []),
-                    message: `Failed permanently: ${err.message}`,
-                    time: new Date()
+                platform: job.platform,
+                message: err.message,
+                time: new Date()
                 }
-                }
-            }),
-            prisma.campaign.update({
-                where: { id: job.campaignId },
-                data: { status: "CANCELED" } // or FAILED if you add enum later
-            })
-            ]);
+            }
+            });
 
-    } else {
-      await prisma.publishJob.update({
-        where: { id: job.id },
-        data: {
-          status: "failed",
-          retryCount: retries,
-          logs: {
-            ...(job.logs || []),
-            message: `Retry ${retries}/${MAX_RETRIES} failed`,
-            time: new Date()
-          }
+        } else if (err instanceof RetryablePlatformError) {
+            await prisma.publishJob.update({
+            where: { id: job.id },
+            data: {
+                status: "FAILED",
+                retryCount: retries,
+                logs: {
+                platform: job.platform,
+                message: `Retry ${retries}/${MAX_RETRIES}: ${err.message}`,
+                time: new Date()
+                }
+            }
+            });
+
+        } else {
+            // unknown error → treat as retryable (safe default)
+            await prisma.publishJob.update({
+            where: { id: job.id },
+            data: {
+                status: "FAILED",
+                retryCount: retries,
+                logs: {
+                platform: job.platform,
+                message: `Unknown error: ${err.message}`,
+                time: new Date()
+                }
+            }
+            });
         }
-      });
-    }
-  }
+        }
+
+        const remaining = await prisma.publishJob.count({
+            where: {
+                campaignId: job.campaignId,
+                status: { in: ["QUEUED", "PROCESSING", "FAILED"] }
+            }
+            });
+
+            if (remaining === 0) {
+            await prisma.campaign.update({
+                where: { id: job.campaignId },
+                data: { status: "COMPLETED" }
+            });
+            }
 }

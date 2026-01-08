@@ -93,3 +93,13 @@ enum JobStatus {
   FAILED_PERMANENT
   CANCELED
 }
+
+model PlatformCredential {
+  id        String   @id @default(uuid())
+  userId    String
+  platform  PublishPlatform
+  token     String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, platform])
+}

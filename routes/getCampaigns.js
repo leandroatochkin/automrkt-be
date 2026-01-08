@@ -104,4 +104,50 @@ router.get("/:id/versions", async (req, res) => {
   res.json(versions);
 });
 
+router.get("/:id/status", 
+    //checkToken, 
+    //ensureUser, 
+    async (req, res) => {
+  try {
+    const campaignId = req.params.id;
+
+    const campaign = await prisma.campaign.findFirst({
+      where: {
+        id: campaignId,
+        ownerId: req.user.id
+      },
+      include: {
+        publishJobs: {
+          orderBy: { platform: "asc" }
+        }
+      }
+    });
+
+    if (!campaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
+
+    res.json({
+      campaign: {
+        id: campaign.id,
+        name: campaign.name,
+        status: campaign.status,
+        scheduledAt: campaign.scheduledAt,
+        createdAt: campaign.createdAt
+      },
+      jobs: campaign.publishJobs.map((job) => ({
+        id: job.id,
+        platform: job.platform,
+        status: job.status,
+        retryCount: job.retryCount,
+        lastAttempt: job.lastAttempt,
+        logs: job.logs
+      }))
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch campaign status" });
+  }
+});
 export default router;
