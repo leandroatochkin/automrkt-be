@@ -5,6 +5,7 @@ import bodyParser from "body-parser";
 import generateCampaignRouter from "./routes/generateCampaign.js";
 import getCampaignsRouter from "./routes/getCampaigns.js";
 import createPublishJobRouter from "./routes/createPublishJob.js";
+import generateMediaRouter from "./routes/generateMedia.js";
 import { runPublishWorker } from "./workers/publishWorker.js";
 
 dotenv.config();
@@ -18,6 +19,7 @@ app.use(bodyParser.json());
 app.use("/campaigns/generate", generateCampaignRouter);
 app.use("/campaign", getCampaignsRouter);
 app.use("/publish-job", createPublishJobRouter);
+app.use("/media/generate", generateMediaRouter);
 
 app.get("/", (req, res) => res.json({ status: "ok" }));
 

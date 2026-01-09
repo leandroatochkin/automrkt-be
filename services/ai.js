@@ -41,3 +41,15 @@ Return ONLY JSON:
 
   return JSON.parse(res.data.response);
 }
+
+export async function generateImageWithGemini(prompt) {
+  console.log("🖼️ Generating image:", prompt);
+  await new Promise(r => setTimeout(r, 1500));
+  return `https://fake.cdn/images/${encodeURIComponent(prompt)}.png`;
+}
+
+export async function generateVideoWithGemini(prompt) {
+  console.log("🎥 Generating video:", prompt);
+  await new Promise(r => setTimeout(r, 3000));
+  return `https://fake.cdn/videos/${encodeURIComponent(prompt)}.mp4`;
+}

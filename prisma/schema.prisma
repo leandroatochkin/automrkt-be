@@ -37,6 +37,8 @@ model Campaign {
 
   // 🔗 Jobs (inverse of PublishJob.campaign)
   publishJobs PublishJob[]
+  mediaJobs     MediaJob[]
+  mediaAssets   MediaAsset[]
 }
 
 enum CampaignStatus {
@@ -102,4 +104,47 @@ model PlatformCredential {
   createdAt DateTime @default(now())
 
   @@unique([userId, platform])
+}
+
+model MediaJob {
+  id         String   @id @default(uuid())
+  campaignId String
+  platform   PublishPlatform
+  type       MediaType
+  prompt     String
+  status     MediaJobStatus @default(QUEUED)
+  retryCount Int     @default(0)
+  lastError  String?
+
+  createdAt DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  asset    MediaAsset?
+}
+
+model MediaAsset {
+  id         String   @id @default(uuid())
+  campaignId String
+  jobId      String   @unique
+  platform   PublishPlatform
+  type       MediaType
+  prompt     String
+  url        String
+  provider   String   // "GEMINI"
+  createdAt  DateTime @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  job      MediaJob @relation(fields: [jobId], references: [id])
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+}
+
+enum MediaJobStatus {
+  QUEUED
+  PROCESSING
+  DONE
+  FAILED
 }
