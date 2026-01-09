@@ -132,7 +132,7 @@ model MediaAsset {
   type       MediaType
   prompt     String
   url        String
-  provider   String   // "GEMINI"
+  provider   MediaProvider
   createdAt  DateTime @default(now())
 
   campaign Campaign @relation(fields: [campaignId], references: [id])
@@ -149,4 +149,11 @@ enum MediaJobStatus {
   PROCESSING
   DONE
   FAILED
+}
+
+enum MediaProvider {
+  GEMINI
+  PUTER
+  OPENAI
+  LOCAL
 }

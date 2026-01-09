@@ -146,5 +146,139 @@ router.post("/:id", async (req, res) => {
   });
 });
 
+router.post(
+  "/campaigns/:id/client",
+  /* checkToken, */
+  /* ensureUser, */
+  async (req, res) => {
+    try {
+      const campaignId = req.params.id;
+      //const userId = req.user.id;
+
+      const {
+        provider,
+        type,
+        platform,
+        url,
+        prompt,
+        fileSize,
+        mimeType
+      } = req.body;
+
+      // ─────────────────────────────
+      // Basic validation
+      // ─────────────────────────────
+      if (!provider || !type || !url || !fileSize || !mimeType) {
+        return res.status(400).json({
+          error: "Missing required fields"
+        });
+      }
+
+      // ─────────────────────────────
+      // Provider lock (PUTER only)
+      // ─────────────────────────────
+      if (provider !== "PUTER") {
+        return res.status(400).json({
+          error: "Only PUTER-generated assets are allowed"
+        });
+      }
+
+      // ─────────────────────────────
+      // Media type lock
+      // ─────────────────────────────
+      if (type !== "IMAGE") {
+        return res.status(400).json({
+          error: "Only IMAGE assets are allowed"
+        });
+      }
+
+      // ─────────────────────────────
+      // JPG only
+      // ─────────────────────────────
+      if (!["image/jpeg", "image/jpg"].includes(mimeType)) {
+        return res.status(400).json({
+          error: "Only JPG images are allowed"
+        });
+      }
+
+      // ─────────────────────────────
+      // File size limit
+      // ─────────────────────────────
+      if (fileSize > MAX_FILE_SIZE_BYTES) {
+        return res.status(400).json({
+          error: "Image exceeds 128KB limit"
+        });
+      }
+
+      // ─────────────────────────────
+      // Ownership check
+      // ─────────────────────────────
+      const campaign = await prisma.campaign.findFirst({
+        where: {
+          id: campaignId,
+          ownerId: "1" //userId
+        }
+      });
+
+      if (!campaign) {
+        return res.status(404).json({
+          error: "Campaign not found"
+        });
+      }
+
+      // ─────────────────────────────
+      // Max 3 images per campaign
+      // ─────────────────────────────
+      const imageCount = await prisma.mediaAsset.count({
+        where: {
+          campaignId,
+          type: "IMAGE"
+        }
+      });
+
+      if (imageCount >= MAX_IMAGES_PER_CAMPAIGN) {
+        return res.status(400).json({
+          error: "Image limit reached for this campaign"
+        });
+      }
+
+      // ─────────────────────────────
+      // Moderation flags (default SAFE)
+      // ─────────────────────────────
+      const moderation = {
+        pending: true,
+        flagged: false,
+        reason: null
+      };
+
+      // ─────────────────────────────
+      // Create asset
+      // ─────────────────────────────
+      const asset = await prisma.mediaAsset.create({
+        data: {
+          campaignId,
+          provider: "PUTER",
+          type: "IMAGE",
+          platform,
+          prompt,
+          url,
+
+          // moderation
+          //moderationStatus: "PENDING",
+          //moderationFlags: moderation
+        }
+      });
+
+      return res.status(201).json(asset);
+
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({
+        error: "Failed to register media asset"
+      });
+    }
+  }
+);
+
 
 export default router;
