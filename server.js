@@ -7,14 +7,19 @@ import getCampaignsRouter from "./routes/getCampaigns.js";
 import createPublishJobRouter from "./routes/createPublishJob.js";
 import generateMediaRouter from "./routes/generateMedia.js";
 import { runPublishWorker } from "./workers/publishWorker.js";
+import { runMediaWorker } from "./workers/mediaWorker.js";
+
 
 dotenv.config();
 const prisma = new PrismaClient();
 const app = express();
 
 setInterval(runPublishWorker, 60 * 1000);
+setInterval(runMediaWorker, 3000);
+
  
 app.use(bodyParser.json());
+
 
 app.use("/campaigns/generate", generateCampaignRouter);
 app.use("/campaign", getCampaignsRouter);

@@ -114,6 +114,8 @@ model MediaJob {
   prompt     String
   status     MediaJobStatus @default(QUEUED)
   retryCount Int     @default(0)
+  lastAttempt DateTime?      
+  completedAt DateTime?
   lastError  String?
 
   createdAt DateTime @default(now())

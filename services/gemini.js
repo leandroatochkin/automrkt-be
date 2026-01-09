@@ -2,27 +2,33 @@ import dotenv from "dotenv";
 dotenv.config();
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-export const imageModel = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash"
-});
-
-
 export async function generateImage(prompt) {
-  const result = await imageModel.generateContent([
-    { text: prompt }
-  ]);
+  const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash"
+  });
 
-  const imageBase64 =
-    result.response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+  const result = await model.generateContent({
+    contents: [
+      {
+        role: "user",
+        parts: [{ text: prompt }]
+      }
+    ],
+    generationConfig: {
+      responseModalities: ["TEXT", "IMAGE"]
+    }
+  });
 
-  if (!imageBase64) {
+  const parts = result.response.candidates?.[0]?.content?.parts;
+
+  const imagePart = parts?.find(p => p.inlineData);
+
+  if (!imagePart?.inlineData?.data) {
     throw new Error("No image returned from Gemini");
   }
 
-  return uploadImage(imageBase64);
+  return `data:image/png;base64,${imagePart.inlineData.data}`;
 }
-
-// Later for video:
-// model: "gemini-1.5-pro"
