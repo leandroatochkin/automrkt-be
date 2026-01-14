@@ -128,7 +128,7 @@ model MediaAsset {
   id         String   @id @default(uuid())
   campaignId String
   jobId      String   @unique
-  platform   PublishPlatform
+  //platform   PublishPlatform
   type       MediaType
   prompt     String
   url        String
@@ -155,5 +155,5 @@ enum MediaProvider {
   GEMINI
   PUTER
   OPENAI
-  LOCAL
+  USER
 }

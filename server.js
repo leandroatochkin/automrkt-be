@@ -8,11 +8,34 @@ import createPublishJobRouter from "./routes/createPublishJob.js";
 import generateMediaRouter from "./routes/generateMedia.js";
 import { runPublishWorker } from "./workers/publishWorker.js";
 import { runMediaWorker } from "./workers/mediaWorker.js";
+import cors from "cors";
 
 
 dotenv.config();
 const prisma = new PrismaClient();
 const app = express();
+
+const frontendURLA = process.env.FRONTEND_URL_A;
+//const frontendURLB = process.env.FRONTEND_URL_B;
+const allowedOrigins = [
+    frontendURLA,
+    //frontendURLB
+];
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true); // Allow requests with no origin (e.g., mobile apps)
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            callback(new Error('Not allowed by CORS'), false);
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 
 setInterval(runPublishWorker, 60 * 1000);
 setInterval(runMediaWorker, 3000);

@@ -1,5 +1,6 @@
 import express from "express";
 import { PrismaClient } from "@prisma/client";
+import { CampaignStatus } from "@prisma/client";
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -40,57 +41,67 @@ router.patch("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, content, audience } = req.body;
 
-  if (!name || !content || !audience || !id) {
+  if (!name || !content || !audience) {
     return res.status(400).json({ error: "Missing required fields" });
   }
 
-  const campaign = await prisma.campaign.findUnique({
-    where: { id }
-  });
+  const stringifiedContent = JSON.stringify(content);
 
-  if (!campaign) {
-    return res.status(404).json({ error: "Campaign not found" });
-  }
-
-  if (campaign.status !== "DRAFT") {
-    return res.status(400).json({
-      error: "Campaign is locked and cannot be edited"
+  try {
+    const campaign = await prisma.campaign.findUnique({
+      where: { id }
     });
-  }
 
-  const nextVersion = campaign.version + 1;
+    if (!campaign) {
+      return res.status(404).json({ error: "Campaign not found" });
+    }
 
-  const [updatedCampaign] = await prisma.$transaction([
-        prisma.campaign.update({
-            where: { id },
-            data: {
+    if (campaign.status !== "DRAFT") {
+      return res.status(400).json({
+        error: "Campaign is locked and cannot be edited"
+      });
+    }
+
+    const nextVersion = campaign.version + 1;
+
+    const [updatedCampaign] = await prisma.$transaction([
+      prisma.campaign.update({
+        where: {
+          id,
+          status: CampaignStatus.DRAFT // 🔒 hard safety check
+        },
+        data: {
+          name,
+          content: stringifiedContent,
+          audience,
+          version: nextVersion
+        }
+      }),
+      prisma.campaignVersion.create({
+        data: {
+          campaignId: id,
+          version: nextVersion,
+          data: {
             name,
-            content,
-            audience,
-            version: nextVersion
-            }
-        }),
-        prisma.campaignVersion.create({
-            data: {
-            campaignId: id,
-            version: nextVersion,
-            data: {
-                name,
-                content,
-                audience
-            },
-            editedBy: campaign.ownerId
-            }
-        })
-        ]);
+            content: stringifiedContent,
+            audience
+          },
+          editedBy: campaign.ownerId
+        }
+      })
+    ]);
 
+    res.json({
+      success: true,
+      campaignId: id,
+      version: nextVersion,
+      updatedAt: updatedCampaign.updatedAt
+    });
 
-
-  res.json({
-    success: true,
-    version: nextVersion,
-    campaign: updatedCampaign
-  });
+  } catch (err) {
+    console.error("Failed to update campaign:", err);
+    res.status(500).json({ error: "Failed to update campaign" });
+  }
 });
 
 router.get("/:id/versions", async (req, res) => {

@@ -34,7 +34,11 @@ router.post("/", async (req, res) => {
             }
         });
 
-        res.json(savedCampaign);
+        res.status(201).json({
+            campaignId: savedCampaign.id,
+            status: savedCampaign.status,
+            content: campaignData
+            });
     } catch (error) {
         console.error("Error generating campaign:", error);
         res.status(500).json({ error: "Failed to generate campaign" });

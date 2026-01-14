@@ -32,7 +32,7 @@ export async function runPublishWorker() {
         id: job.id,
         status: job.status
     },
-    data: { status: "processing", lastAttempt: new Date() }
+    data: { status: JobStatus.PROCESSING, lastAttempt: new Date() }
     });
 
     if (claimed.count === 0) return;
@@ -40,11 +40,11 @@ export async function runPublishWorker() {
   await prisma.$transaction([
         prisma.publishJob.update({
             where: { id: job.id },
-            data: { status: "processing", lastAttempt: new Date() }
+            data: { status: JobStatus.PROCESSING, lastAttempt: new Date() }
         }),
         prisma.campaign.update({
             where: { id: job.campaignId },
-            data: { status: "RUNNING" }
+            data: { status: JobStatus.RUNNING }
         })
         ]);
 
@@ -79,7 +79,7 @@ export async function runPublishWorker() {
         }),
         prisma.campaign.update({
             where: { id: job.campaignId },
-            data: { status: "COMPLETED" }
+            data: { status: JobStatus.COMPLETED }
         })
         ]);
 
@@ -94,7 +94,7 @@ export async function runPublishWorker() {
             await prisma.publishJob.update({
             where: { id: job.id },
             data: {
-                status: "FAILED_PERMANENT",
+                status: JobStatus.FAILED_PERMANENT,
                 retryCount: retries,
                 logs: {
                 platform: job.platform,
@@ -108,7 +108,7 @@ export async function runPublishWorker() {
             await prisma.publishJob.update({
             where: { id: job.id },
             data: {
-                status: "FAILED",
+                status: JobStatus.FAILED,
                 retryCount: retries,
                 logs: {
                 platform: job.platform,
@@ -123,7 +123,7 @@ export async function runPublishWorker() {
             await prisma.publishJob.update({
             where: { id: job.id },
             data: {
-                status: "FAILED",
+                status: JobStatus.FAILED,
                 retryCount: retries,
                 logs: {
                 platform: job.platform,
@@ -138,14 +138,14 @@ export async function runPublishWorker() {
         const remaining = await prisma.publishJob.count({
             where: {
                 campaignId: job.campaignId,
-                status: { in: ["QUEUED", "PROCESSING", "FAILED"] }
+                status: { in: [JobStatus.QUEUED, JobStatus.PROCESSING, JobStatus.FAILED] }
             }
             });
 
             if (remaining === 0) {
             await prisma.campaign.update({
                 where: { id: job.campaignId },
-                data: { status: "COMPLETED" }
+                data: { status: JobStatus.COMPLETED }
             });
             }
 }
